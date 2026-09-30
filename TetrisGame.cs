@@ -45,11 +45,14 @@ namespace Tetris2D
             _texto = new RenderizadorTexto(_shaders, new GeneradorFuenteAtlas("Arial Black", 48f, true));
 
             // Pantalla inicial: la bienvenida arcade.
-            _pantalla = new PantallaBienvenida(_shaders, _cuadros, _texto);
-            _pantalla.Cargar();
+            var bienvenida = new PantallaBienvenida(_shaders, _cuadros, _texto);
+            bienvenida.JugarSolicitado += nombreJugador =>
+            {
+                CambiarPantalla(new PantallaJuego(_shaders, _cuadros, _texto, nombreJugador));
+            };
 
-            // FASE 2: aqui se conecta el cambio hacia el tablero. Ejemplo:
-            // _pantalla.JugarSolicitado += nombre => CambiarPantalla(new PantallaJuego(...));
+            _pantalla = bienvenida;
+            _pantalla.Cargar();
         }
 
         /// <summary>
@@ -57,6 +60,12 @@ namespace Tetris2D
         /// OpenGL para que coincida con el framebuffer real (importante en
         /// pantallas con alta densidad de pixeles / HiDPI).
         /// </summary>
+        public void CambiarPantalla(Pantalla nuevaPantalla)
+        { 
+        _pantalla = nuevaPantalla;
+        _pantalla.Cargar();
+        }
+       
         protected override void OnResize(ResizeEventArgs e)
         {
             base.OnResize(e);

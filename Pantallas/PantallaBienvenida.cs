@@ -6,23 +6,23 @@ using Tetris2D.UI;
 namespace Tetris2D.Pantallas
 {
     /// <summary>
-    /// Pantalla de bienvenida estilo arcade de la Fase 1:
-    ///  - Fondo oscuro con estrellas ("cielo" de sala de maquinas).
-    ///  - Titulo "TETRIS2D" con resplandor neon.
+    /// Pantalla de bienvenida estilo arcade:
+    ///  - Fondo oscuro con estrellas ("cielo" de sala de máquinas).
+    ///  - Título "TETRIS2D" con resplandor neón.
     ///  - Caja para escribir el nombre del jugador.
-    ///  - Boton INICIAR JUEGO (se habilita al escribir el nombre).
-    ///
-    /// Al presionar INICIAR se muestra un mensaje de confirmacion con el nombre
-    /// y se dispara el evento JugarSolicitado (que en la Fase 2 abrira el tablero).
+    ///  - Botón INICIAR JUEGO (se habilita al escribir el nombre).
     /// </summary>
     public class PantallaBienvenida : Pantalla
     {
+        // Evento que notifica a TetrisGame para cambiar a PantallaJuego
+        public new event Action<string>? JugarSolicitado;
+
         private readonly Boton _botonIniciar;
         private readonly CuadroTexto _cuadroNombre;
         private bool _iniciado;
 
-        // Estrellas decorativas: posicion en fracciones de pantalla (0..1),
-        // tamano y brillo fijos para que no cambien de lugar entre frames.
+        // Estrellas decorativas: posición en fracciones de pantalla (0..1),
+        // tamaño y brillo fijos para que no cambien de lugar entre frames.
         private readonly Estrella[] _estrellas;
 
         private readonly struct Estrella
@@ -43,7 +43,7 @@ namespace Tetris2D.Pantallas
 
             _cuadroNombre = new CuadroTexto(cuadros, texto);
 
-            // Semilla fija: mismas estrellas en cada ejecucion.
+            // Semilla fija: mismas estrellas en cada ejecución.
             Random rnd = new(2026);
             _estrellas = new Estrella[60];
             for (int i = 0; i < _estrellas.Length; i++)
@@ -59,7 +59,8 @@ namespace Tetris2D.Pantallas
         public override void Cargar()
         {
             base.Cargar();
-            _cuadroNombre.Limpiar();     // empezamos con el nombre vacio
+            _cuadroNombre.Limpiar();     // Empezamos con el nombre vacío
+            _iniciado = false;
         }
 
         public override void Actualizar(float dt, Vector2 raton)
@@ -68,7 +69,7 @@ namespace Tetris2D.Pantallas
             _botonIniciar.Actualizar(raton);
             _cuadroNombre.Actualizar(dt);
 
-            // El boton solo funciona cuando hay nombre escrito.
+            // El botón solo funciona cuando hay nombre escrito.
             _botonIniciar.Habilitado = !_iniciado && _cuadroNombre.Nombre.Length > 0;
         }
 
@@ -97,14 +98,17 @@ namespace Tetris2D.Pantallas
                 _cuadroNombre.AlTexto(caracter);
         }
 
-        /// <summary>El jugador confirmo su nombre: mostramos la confirmacion.</summary>
+        /// <summary>El jugador confirmó su nombre: dispara el evento de inicio.</summary>
         private void IniciarJuego()
         {
             if (_iniciado)
                 return;
+
             _iniciado = true;
-            // Gancho para la Fase 2: aqui TetrisGame cambiara a PantallaJuego.
-            SolicitarJuego(_cuadroNombre.Nombre);
+
+            // Transición hacia el tablero enviando el nombre al evento.
+            string nombreJugador = string.IsNullOrWhiteSpace(_cuadroNombre.Nombre) ? "JUGADOR" : _cuadroNombre.Nombre;
+            JugarSolicitado?.Invoke(nombreJugador);
         }
 
         public override void Renderizar(float ancho, float alto)
@@ -123,9 +127,7 @@ namespace Tetris2D.Pantallas
             float cx = ancho * 0.5f;
             string titulo = "TETRIS2D";
 
-            // --- Titulo con resplandor neon ----------------------------------
-            // El "glow" se logra dibujando el mismo texto varias veces, muy
-            // translucido, desplazado unos pixeles en cada direccion.
+            // --- Título con resplandor neón ----------------------------------
             float tituloAlto = alto * 0.10f;
             float tituloY = alto * 0.16f;
             float resplandor = alto * 0.008f;
@@ -149,7 +151,7 @@ namespace Tetris2D.Pantallas
             float anchoTotal = Texto.MedirTexto(titulo, tituloAlto);
             Texto.DibujarTexto(titulo, cx - anchoTotal * 0.5f, tituloY, tituloAlto, TemaArcade.Cian);
 
-            // --- Subtitulo ---------------------------------------------------
+            // --- Subtítulo ---------------------------------------------------
             string subtitulo = "— GRAFICACIÓN POR COMPUTADORA —";
             float subAlto = alto * 0.028f;
             float subAncho = Texto.MedirTexto(subtitulo, subAlto);
@@ -166,7 +168,7 @@ namespace Tetris2D.Pantallas
             float cajaY = alto * 0.48f;
             _cuadroNombre.Renderizar(cx - cajaAncho * 0.5f, cajaY, cajaAncho, cajaAlto);
 
-            // --- Boton INICIAR JUEGO -----------------------------------------
+            // --- Botón INICIAR JUEGO -----------------------------------------
             float botonAncho = ancho * 0.36f;
             float botonAlto = alto * 0.085f;
             _botonIniciar.X0 = cx - botonAncho * 0.5f;
@@ -176,48 +178,10 @@ namespace Tetris2D.Pantallas
             _botonIniciar.Renderizar(alto * 0.042f);
 
             // --- Pie de pantalla ---------------------------------------------
-            string pie = "TETRIS2D v1.0 — base lista para la Fase 2 (tablero)";
+            string pie = "TETRIS2D v1.0 — Graficación por Computadora";
             float pieAlto = alto * 0.018f;
             float pieAncho = Texto.MedirTexto(pie, pieAlto);
             Texto.DibujarTexto(pie, cx - pieAncho * 0.5f, alto - pieAlto * 2.2f, pieAlto, TemaArcade.TextoSuave);
-
-            // --- Confirmacion al iniciar -------------------------------------
-            if (_iniciado)
-                RenderizarConfirmacion(ancho, alto);
-        }
-
-        /// <summary>
-        /// Mensaje final de la Fase 1: confirma que el nombre se recibio bien.
-        /// En la Fase 2, este lugar sera una transicion hacia el tablero.
-        /// </summary>
-        private void RenderizarConfirmacion(float ancho, float alto)
-        {
-            // Oscurecemos toda la pantalla detrás del panel.
-            Cuadros.DibujarRectangulo(new Vector4(0f, 0f, 0f, 0.55f), 0, 0, ancho, alto);
-
-            float cx = ancho * 0.5f;
-            float panelAncho = ancho * 0.74f;
-            float panelAlto = alto * 0.30f;
-            float panelX = cx - panelAncho * 0.5f;
-            float panelY = alto * 0.34f;
-
-            Cuadros.DibujarRectangulo(TemaArcade.PanelOscuro, panelX, panelY, panelX + panelAncho, panelY + panelAlto);
-            Cuadros.DibujarBordeRectangulo(TemaArcade.Cian, panelX, panelY, panelX + panelAncho, panelY + panelAlto, MathF.Max(1f, alto * 0.006f));
-
-            string mensaje = $"¡BUENA SUERTE, {_cuadroNombre.Nombre}!";
-            float mAlto = alto * 0.055f;
-            float mAncho = Texto.MedirTexto(mensaje, mAlto);
-            Texto.DibujarTexto(mensaje, cx - mAncho * 0.5f, panelY + panelAlto * 0.24f, mAlto, TemaArcade.Amarillo);
-
-            string nota = "La Fase 2 agregará aquí el tablero y las piezas.";
-            float nAlto = alto * 0.03f;
-            float nAncho = Texto.MedirTexto(nota, nAlto);
-            Texto.DibujarTexto(nota, cx - nAncho * 0.5f, panelY + panelAlto * 0.52f, nAlto, TemaArcade.TextoSuave);
-
-            string cerrar = "Cierra la ventana para salir.";
-            float cAlto = alto * 0.022f;
-            float cAncho = Texto.MedirTexto(cerrar, cAlto);
-            Texto.DibujarTexto(cerrar, cx - cAncho * 0.5f, panelY + panelAlto * 0.74f, cAlto, TemaArcade.TextoSuave);
         }
     }
 }
