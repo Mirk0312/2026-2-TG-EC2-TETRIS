@@ -2,6 +2,7 @@ using Tetris2D.Graficos;
 using Tetris2D.UI;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using Tetris2D.Audio;
 
 namespace Tetris2D.Pantallas;
 
@@ -75,6 +76,7 @@ public class PantallaJuego : Pantalla
         if (_tablero.Colisiona(_piezaActual.Bloques, _posX, _posY))
         {
             _gameOver = true;
+            Sonido.Reproducir(TonoJuego.GameOver);
         }
     }
 
@@ -133,17 +135,24 @@ public class PantallaJuego : Pantalla
         switch (tecla)
         {
             case Keys.Left:
-                MoverPieza(-1, 0);
+                if (MoverPieza(-1, 0))
+                {
+                    Sonido.Reproducir(TonoJuego.Mover);
+                }
                 break;
 
             case Keys.Right:
-                MoverPieza(1, 0);
+                if (MoverPieza(1, 0))
+                {
+                    Sonido.Reproducir(TonoJuego.Mover);
+                }
                 break;
 
             case Keys.Down:
                 if (MoverPieza(0, 1))
                 {
                     _puntaje += 1;
+                    Sonido.Reproducir(TonoJuego.Mover);
                 }
                 else
                 {
@@ -156,7 +165,10 @@ public class PantallaJuego : Pantalla
                 break;
 
             case Keys.Space:
-                RotarConEsquinas();
+                if (RotarConEsquinas())
+                {
+                    Sonido.Reproducir(TonoJuego.Rotar);
+                }
                 break;
         }
     }
@@ -185,12 +197,17 @@ public class PantallaJuego : Pantalla
             filas++;
 
         _puntaje += filas * 2;
+        Sonido.Reproducir(TonoJuego.Mover);
         FijarYGenerar();
     }
 
     private void FijarYGenerar()
     {
         _tablero.FijarPieza(_piezaActual, _posX, _posY);
+
+        // Sonido al fijar la pieza en el tablero
+        Sonido.Reproducir(TonoJuego.Fijar);
+
         int borradas = _tablero.LimpiarLineasCompletas();
         if (borradas > 0)
         {
@@ -204,16 +221,21 @@ public class PantallaJuego : Pantalla
             };
 
             _puntaje += baseLineas * _nivel;
+
+            // Sonido al limpiar línea(s)
+            Sonido.Reproducir(TonoJuego.Linea);
+
             int nuevoNivel = _lineas / 10 + 1;
             if (nuevoNivel > _nivel)
             {
                 _nivel = nuevoNivel;
+                // Sonido al subir de nivel
+                Sonido.Reproducir(TonoJuego.Nivel);
             }
         }
         GenerarPiezaNueva();
     }
 
-    // Paso 20: Método de Renderizado Completo
     public override void Renderizar(float ancho, float alto)
     {
         // Fondo de pantalla.
@@ -233,7 +255,7 @@ public class PantallaJuego : Pantalla
         // Encabezado con el nombre del jugador.
         RenderizarEncabezado(ancho, alto);
 
-        // Overlay de pausa (Fase 3).
+        // Overlay de pausa.
         if (_pausa)
             RenderizarOverlayPausa(ancho, alto);
 
@@ -244,30 +266,24 @@ public class PantallaJuego : Pantalla
 
     private void CalcularDisposicion(float ancho, float alto)
     {
-        // Banda superior reservada para el encabezado (título).
         float margen = alto * 0.05f;
         float altoEncabezado = alto * 0.14f;
 
-        // Altura útil: por debajo del encabezado y del margen inferior.
         float altoUtil = alto - altoEncabezado - margen;
         _tamCelda = MathF.Floor(altoUtil / Tablero.Filas);
 
         float anchoTablero = Tablero.Columnas * _tamCelda;
         float altoTablero = Tablero.Filas * _tamCelda;
 
-        // Hueco explícito entre el tablero y la card lateral.
         float separacion = _tamCelda * 1.6f;
 
-        // Ancho de la card lateral: lo que sobre a la derecha.
         float anchoPanel = MathF.Max(140f,
             MathF.Min(ancho * 0.32f, ancho - anchoTablero - separacion - margen * 2f));
 
-        // El grupo {tablero + hueco + card} se centra en la ventana.
         float zonaTotal = anchoTablero + separacion + anchoPanel;
         _tableroX = MathF.Max(margen, (ancho - zonaTotal) * 0.5f);
         _tableroY = altoEncabezado + MathF.Max(0f, (altoUtil - altoTablero) * 0.5f);
 
-        // Geometría de la card lateral (misma altura que el tablero).
         _panelX = _tableroX + anchoTablero + separacion;
         _panelY = _tableroY;
         _panelW = anchoPanel;
@@ -294,7 +310,6 @@ public class PantallaJuego : Pantalla
         if (_panelW < 120f || _panelH < 120f)
             return;
 
-        // Fondo de la card separada del tablero.
         Cuadros.DibujarRectangulo(TemaArcade.PanelOscuro, _panelX, _panelY, _panelX + _panelW, _panelY + _panelH);
         float grosorBorde = MathF.Max(1f, _tamCelda * 0.06f);
         Cuadros.DibujarBordeRectangulo(TemaArcade.Cian, _panelX, _panelY, _panelX + _panelW, _panelY + _panelH, grosorBorde);
@@ -303,14 +318,14 @@ public class PantallaJuego : Pantalla
         float y = _panelY + _tamCelda * 0.6f;
         float avance = _tamCelda * 2.2f;
 
-        // --- JUGADOR ----------------------------------------------------
+        // --- JUGADOR ---
         TituloPanel("JUGADOR", cx, y, alto);
         float altoJugador = _tamCelda * 0.85f;
         string nombre = _nombreJugador.ToUpperInvariant();
         float wJugador = Texto.MedirTexto(nombre, altoJugador);
         Texto.DibujarTexto(nombre, cx - wJugador * 0.5f, y + avance * 0.32f, altoJugador, TemaArcade.Amarillo);
 
-        // --- PUNTAJE -----------------------------------------------------
+        // --- PUNTAJE ---
         float yPuntos = y + avance * 0.95f;
         TituloPanel("PUNTAJE", cx, yPuntos, alto);
         float valorPuntos = _tamCelda * 1.4f;
@@ -318,7 +333,7 @@ public class PantallaJuego : Pantalla
         float wPuntos = Texto.MedirTexto(textoPuntos, valorPuntos);
         Texto.DibujarTexto(textoPuntos, cx - wPuntos * 0.5f, yPuntos + avance * 0.30f, valorPuntos, TemaArcade.Amarillo);
 
-        // --- LINEAS ------------------------------------------------------
+        // --- LINEAS ---
         float yLineas = yPuntos + avance * 0.92f;
         TituloPanel("LINEAS", cx, yLineas, alto);
         float valorLineas = _tamCelda * 1.4f;
@@ -326,7 +341,7 @@ public class PantallaJuego : Pantalla
         float wLineas = Texto.MedirTexto(textoLineas, valorLineas);
         Texto.DibujarTexto(textoLineas, cx - wLineas * 0.5f, yLineas + avance * 0.30f, valorLineas, TemaArcade.Verde);
 
-        // --- NIVEL -------------------------------------------------------
+        // --- NIVEL ---
         float yNivel = yLineas + avance * 0.92f;
         TituloPanel("NIVEL", cx, yNivel, alto);
         float valorNivel = _tamCelda * 1.1f;
@@ -334,18 +349,16 @@ public class PantallaJuego : Pantalla
         float wNivel = Texto.MedirTexto(textoNivel, valorNivel);
         Texto.DibujarTexto(textoNivel, cx - wNivel * 0.5f, yNivel + avance * 0.28f, valorNivel, TemaArcade.Rojo);
 
-        // Progreso hacia el siguiente nivel.
         int enNivel = _lineas % 10;
         string progreso = $"{enNivel}/10 PARA SUBIR";
         float altoProg = _tamCelda * 0.55f;
         float wProg = Texto.MedirTexto(progreso, altoProg);
         Texto.DibujarTexto(progreso, cx - wProg * 0.5f, yNivel + avance * 0.85f, altoProg, TemaArcade.TextoSuave);
 
-        // --- SIGUIENTE ---------------------------------------------------
+        // --- SIGUIENTE ---
         float ySig = yNivel + avance * 1.45f;
         TituloPanel("SIGUIENTE", cx, ySig, alto);
 
-        // Caja del preview con su borde.
         float altoCaja = _tamCelda * 3.0f;
         float anchoCaja = MathF.Min(_panelW * 0.86f, _tamCelda * 4.2f);
         float cajaX = _panelX + (_panelW - anchoCaja) * 0.5f;
@@ -355,7 +368,7 @@ public class PantallaJuego : Pantalla
         Cuadros.DibujarBordeRectangulo(TemaArcade.Cian, cajaX, cajaY, cajaX + anchoCaja, cajaY + altoCaja, grosorBorde);
         RenderizarPreview(_piezaSiguiente, cajaX, cajaY, anchoCaja, altoCaja);
 
-        // Ayuda de controles al pie de la card.
+        // Controles al pie
         string controles = "<- -> MOVER   ESPACIO ROTAR";
         string controles2 = "v BAJAR   ARRIBA CAER";
         string controles3 = "ESC PAUSAR";
@@ -443,10 +456,8 @@ public class PantallaJuego : Pantalla
         Texto.DibujarTexto(titulo, (ancho - wTitulo) * 0.5f, alto * 0.02f, altoTitulo, TemaArcade.Cian);
     }
 
-    // Paso 21: Pantalla de Game Over
     private void RenderizarGameOver(float ancho, float alto)
     {
-        // Oscurece todo detrás del panel.
         Cuadros.DibujarRectangulo(new Vector4(0f, 0f, 0f, 0.60f), 0, 0, ancho, alto);
 
         float cx = ancho * 0.5f;

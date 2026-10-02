@@ -21,7 +21,8 @@
     <PackageReference Include="OpenTK" Version="4.9.4" />
     <!-- Generacion del atlas de fuente de texto (solo Windows) -->
     <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
-    
+	  <!-- SoundPlayer (System.Media) para los tonos WAV de la Fase 3 -->
+	  <PackageReference Include="System.Windows.Extensions" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
